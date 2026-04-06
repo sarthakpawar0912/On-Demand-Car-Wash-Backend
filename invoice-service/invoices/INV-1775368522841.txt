@@ -1,0 +1,13 @@
+===== CAR WASH SERVICE =====
+GSTIN: 27ABCDE1234F1Z5
+
+Invoice No: INV-1775368522841
+Date: 2026-04-05T11:25:22.844378200
+
+Customer: sarthak@gmail.com
+Order ID: 2
+
+Amount: ₹500.0
+CGST: ₹45.0
+SGST: ₹45.0
+TOTAL: ₹590.0

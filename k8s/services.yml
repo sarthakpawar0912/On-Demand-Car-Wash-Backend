@@ -1,0 +1,594 @@
+## ============================================
+## USER SERVICE
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: sarthakpawar09/carwash-user-service:latest
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "configserver:http://config-server:8888"
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/car_wash"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-root-password
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              value: "http://zipkin:9411/api/v2/spans"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: carwash
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: 8081
+      targetPort: 8081
+
+---
+## ============================================
+## CAR SERVICE
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: car-service
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: car-service
+  template:
+    metadata:
+      labels:
+        app: car-service
+    spec:
+      containers:
+        - name: car-service
+          image: sarthakpawar09/carwash-car-service:latest
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "configserver:http://config-server:8888"
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/car_wash"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-root-password
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              value: "http://zipkin:9411/api/v2/spans"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: car-service
+  namespace: carwash
+spec:
+  selector:
+    app: car-service
+  ports:
+    - port: 8082
+      targetPort: 8082
+
+---
+## ============================================
+## ORDER SERVICE
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: sarthakpawar09/carwash-order-service:latest
+          ports:
+            - containerPort: 8083
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "configserver:http://config-server:8888"
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/car_wash"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-root-password
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              value: "http://zipkin:9411/api/v2/spans"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: carwash
+spec:
+  selector:
+    app: order-service
+  ports:
+    - port: 8083
+      targetPort: 8083
+
+---
+## ============================================
+## PAYMENT SERVICE
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: sarthakpawar09/carwash-payment-service:latest
+          ports:
+            - containerPort: 8084
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "configserver:http://config-server:8888"
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              value: "http://zipkin:9411/api/v2/spans"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8084
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8084
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: carwash
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - port: 8084
+      targetPort: 8084
+
+---
+## ============================================
+## RATING SERVICE
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rating-service
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rating-service
+  template:
+    metadata:
+      labels:
+        app: rating-service
+    spec:
+      containers:
+        - name: rating-service
+          image: sarthakpawar09/carwash-rating-service:latest
+          ports:
+            - containerPort: 8086
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "configserver:http://config-server:8888"
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/car_wash"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-root-password
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              value: "http://zipkin:9411/api/v2/spans"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8086
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8086
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rating-service
+  namespace: carwash
+spec:
+  selector:
+    app: rating-service
+  ports:
+    - port: 8086
+      targetPort: 8086
+
+---
+## ============================================
+## INVOICE SERVICE
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invoice-service
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: invoice-service
+  template:
+    metadata:
+      labels:
+        app: invoice-service
+    spec:
+      containers:
+        - name: invoice-service
+          image: sarthakpawar09/carwash-invoice-service:latest
+          ports:
+            - containerPort: 8087
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "configserver:http://config-server:8888"
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/car_wash"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-root-password
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              value: "http://zipkin:9411/api/v2/spans"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8087
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8087
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: invoice-service
+  namespace: carwash
+spec:
+  selector:
+    app: invoice-service
+  ports:
+    - port: 8087
+      targetPort: 8087
+
+---
+## ============================================
+## ADMIN SERVICE
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-service
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admin-service
+  template:
+    metadata:
+      labels:
+        app: admin-service
+    spec:
+      containers:
+        - name: admin-service
+          image: sarthakpawar09/carwash-admin-service:latest
+          ports:
+            - containerPort: 8088
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "configserver:http://config-server:8888"
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/car_wash"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-root-password
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              value: "http://zipkin:9411/api/v2/spans"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8088
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8088
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-service
+  namespace: carwash
+spec:
+  selector:
+    app: admin-service
+  ports:
+    - port: 8088
+      targetPort: 8088
+
+---
+## ============================================
+## NOTIFICATION SERVICE
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: sarthakpawar09/carwash-notification-service:latest
+          ports:
+            - containerPort: 8089
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "configserver:http://config-server:8888"
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/car_wash"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: carwash-secrets
+                  key: mysql-root-password
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: MANAGEMENT_ZIPKIN_TRACING_ENDPOINT
+              value: "http://zipkin:9411/api/v2/spans"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8089
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8089
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: carwash
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - port: 8089
+      targetPort: 8089

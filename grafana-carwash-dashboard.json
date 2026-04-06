@@ -1,0 +1,304 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "carwash-overview",
+    "title": "Car Wash System - Overview",
+    "tags": ["car-wash", "microservices"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": {
+      "from": "now-30m",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health (UP=1, DOWN=0)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "up",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "reduceOptions": {"calcs": ["lastNotNull"]}
+        }
+      },
+      {
+        "id": 2,
+        "title": "HTTP Request Rate (requests/sec)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[1m])",
+            "legendFormat": "{{job}} - {{method}} {{uri}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "HTTP Response Time (avg ms)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "rate(http_server_requests_seconds_sum{uri!~\"/actuator.*\"}[1m]) / rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[1m]) * 1000",
+            "legendFormat": "{{job}} - {{uri}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "JVM Memory Used (MB)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "jvm_memory_used_bytes{area=\"heap\"} / 1024 / 1024",
+            "legendFormat": "{{job}} - Heap",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decmbytes",
+            "custom": {"lineWidth": 2, "fillOpacity": 20}
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "JVM Threads",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "jvm_threads_live_threads",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "HTTP Error Rate (4xx + 5xx)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "rate(http_server_requests_seconds_count{status=~\"4..|5..\", uri!~\"/actuator.*\"}[1m])",
+            "legendFormat": "{{job}} {{status}} {{uri}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 10},
+            "color": {"mode": "palette-classic"}
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Circuit Breaker State",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "resilience4j_circuitbreaker_state{state=\"closed\"}",
+            "legendFormat": "{{job}} - {{name}} = CLOSED",
+            "refId": "A"
+          },
+          {
+            "expr": "resilience4j_circuitbreaker_state{state=\"open\"}",
+            "legendFormat": "{{job}} - {{name}} = OPEN",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"0": {"text": "INACTIVE"}, "1": {"text": "ACTIVE", "color": "green"}}}
+            ]
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "reduceOptions": {"calcs": ["lastNotNull"]}
+        }
+      },
+      {
+        "id": 8,
+        "title": "Circuit Breaker - Failure Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "resilience4j_circuitbreaker_failure_rate",
+            "legendFormat": "{{job}} - {{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 25},
+                {"color": "red", "value": 50}
+              ]
+            },
+            "custom": {"lineWidth": 2, "fillOpacity": 15}
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Circuit Breaker - Calls (success/fail)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+        "targets": [
+          {
+            "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{kind=\"successful\"}[1m])",
+            "legendFormat": "{{job}} {{name}} SUCCESS",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{kind=\"failed\"}[1m])",
+            "legendFormat": "{{job}} {{name}} FAILED",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Retry Attempts",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "rate(resilience4j_retry_calls_total[1m])",
+            "legendFormat": "{{job}} - {{name}} ({{kind}})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "GC Pause Time (ms)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "targets": [
+          {
+            "expr": "rate(jvm_gc_pause_seconds_sum[1m]) * 1000",
+            "legendFormat": "{{job}} - {{cause}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "System CPU Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 48},
+        "targets": [
+          {
+            "expr": "process_cpu_usage * 100",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "custom": {"lineWidth": 2, "fillOpacity": 15}
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Rate Limiter - Requests Allowed vs Denied",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 48},
+        "targets": [
+          {
+            "expr": "rate(spring_cloud_gateway_requests_seconds_count{httpStatusCode=\"200\"}[1m])",
+            "legendFormat": "ALLOWED (200) - {{routeId}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(spring_cloud_gateway_requests_seconds_count{httpStatusCode=\"429\"}[1m])",
+            "legendFormat": "DENIED (429) - {{routeId}}",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      }
+    ],
+    "schemaVersion": 39,
+    "version": 1
+  },
+  "overwrite": true
+}

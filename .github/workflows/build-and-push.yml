@@ -1,0 +1,179 @@
+name: Build & Push to Docker Hub
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOCKER_HUB_USER: sarthakpawar09
+
+jobs:
+  # ============================================
+  # Detect which services changed
+  # ============================================
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      admin-service: ${{ steps.changes.outputs.admin-service }}
+      api-gateway: ${{ steps.changes.outputs.api-gateway }}
+      car-service: ${{ steps.changes.outputs.car-service }}
+      config-server: ${{ steps.changes.outputs.config-server }}
+      eureka-server: ${{ steps.changes.outputs.eureka-server }}
+      invoice-service: ${{ steps.changes.outputs.invoice-service }}
+      notification-service: ${{ steps.changes.outputs.notification-service }}
+      order-service: ${{ steps.changes.outputs.order-service }}
+      payment-service: ${{ steps.changes.outputs.payment-service }}
+      rating-service: ${{ steps.changes.outputs.rating-service }}
+      user-service: ${{ steps.changes.outputs.user-service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            admin-service:
+              - 'admin-service/**'
+            api-gateway:
+              - 'api-gateway/**'
+            car-service:
+              - 'car-service/**'
+            config-server:
+              - 'config-server/**'
+            eureka-server:
+              - 'eureka-server/**'
+            invoice-service:
+              - 'invoice-service/**'
+            notification-service:
+              - 'notification-service/**'
+            order-service:
+              - 'order-service/**'
+            payment-service:
+              - 'payment-service/**'
+            rating-service:
+              - 'rating-service/**'
+            user-service:
+              - 'user-service/**'
+
+  # ============================================
+  # Build & Push changed services
+  # ============================================
+  build-and-push:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - admin-service
+          - api-gateway
+          - car-service
+          - config-server
+          - eureka-server
+          - invoice-service
+          - notification-service
+          - order-service
+          - payment-service
+          - rating-service
+          - user-service
+    steps:
+      - name: Check if service changed
+        id: check
+        run: |
+          SERVICE="${{ matrix.service }}"
+          CHANGED="${{ needs.detect-changes.outputs[matrix.service] }}"
+          if [ "$CHANGED" = "true" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.should_build == 'true'
+
+      - name: Set up JDK 21
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        if: steps.check.outputs.should_build == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ matrix.service }}-${{ hashFiles(format('{0}/pom.xml', matrix.service)) }}
+          restore-keys: |
+            ${{ runner.os }}-maven-${{ matrix.service }}-
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        if: steps.check.outputs.should_build == 'true'
+        run: |
+          cd ${{ matrix.service }}
+          chmod +x mvnw
+          ./mvnw clean package -Dmaven.test.skip=true -B
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.should_build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: steps.check.outputs.should_build == 'true' && github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        if: steps.check.outputs.should_build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ${{ env.DOCKER_HUB_USER }}/carwash-${{ matrix.service }}:latest
+            ${{ env.DOCKER_HUB_USER }}/carwash-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================
+  # Deploy to Kubernetes (optional - on main only)
+  # ============================================
+  deploy-k8s:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+
+      - name: Deploy to Kubernetes
+        run: |
+          cd k8s
+          kubectl apply -f namespace.yml
+          kubectl apply -f secrets.yml
+          kubectl apply -f infrastructure.yml
+          kubectl apply -f monitoring.yml
+          kubectl apply -f discovery-config.yml
+          kubectl apply -f gateway.yml
+          kubectl apply -f services.yml
+
+      - name: Restart deployments with new images
+        run: |
+          SERVICES="eureka-server config-server api-gateway user-service car-service order-service payment-service rating-service invoice-service admin-service notification-service"
+          for svc in $SERVICES; do
+            kubectl rollout restart deployment/$svc -n carwash 2>/dev/null || true
+          done
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n carwash

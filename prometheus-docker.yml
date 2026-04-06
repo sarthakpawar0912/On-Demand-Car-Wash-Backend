@@ -1,0 +1,72 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['api-gateway:8080']
+        labels:
+          application: 'API-GATEWAY'
+
+  - job_name: 'user-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['user-service:8081']
+        labels:
+          application: 'USER-SERVICE'
+
+  - job_name: 'car-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['car-service:8082']
+        labels:
+          application: 'CAR-SERVICE'
+
+  - job_name: 'order-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['order-service:8083']
+        labels:
+          application: 'ORDER-SERVICE'
+
+  - job_name: 'payment-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['payment-service:8084']
+        labels:
+          application: 'PAYMENT-SERVICE'
+
+  - job_name: 'rating-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['rating-service:8086']
+        labels:
+          application: 'RATING-SERVICE'
+
+  - job_name: 'invoice-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['invoice-service:8087']
+        labels:
+          application: 'INVOICE-SERVICE'
+
+  - job_name: 'admin-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['admin-service:8088']
+        labels:
+          application: 'ADMIN-SERVICE'
+
+  - job_name: 'notification-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['notification-service:8089']
+        labels:
+          application: 'NOTIFICATION-SERVICE'

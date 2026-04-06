@@ -1,0 +1,128 @@
+## ============================================
+## EUREKA SERVER
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eureka-server
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eureka-server
+  template:
+    metadata:
+      labels:
+        app: eureka-server
+    spec:
+      containers:
+        - name: eureka-server
+          image: sarthakpawar09/carwash-eureka-server:latest
+          ports:
+            - containerPort: 8761
+          env:
+            - name: EUREKA_CLIENT_REGISTER-WITH-EUREKA
+              value: "false"
+            - name: EUREKA_CLIENT_FETCH-REGISTRY
+              value: "false"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "768Mi"
+              cpu: "500m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eureka-server
+  namespace: carwash
+spec:
+  selector:
+    app: eureka-server
+  ports:
+    - port: 8761
+      targetPort: 8761
+
+---
+## ============================================
+## CONFIG SERVER
+## ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-server
+  namespace: carwash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: config-server
+  template:
+    metadata:
+      labels:
+        app: config-server
+    spec:
+      containers:
+        - name: config-server
+          image: sarthakpawar09/carwash-config-server:latest
+          ports:
+            - containerPort: 8888
+          env:
+            - name: EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE
+              value: "http://eureka-server:8761/eureka"
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "768Mi"
+              cpu: "500m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8888
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8888
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8888
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-server
+  namespace: carwash
+spec:
+  selector:
+    app: config-server
+  ports:
+    - port: 8888
+      targetPort: 8888

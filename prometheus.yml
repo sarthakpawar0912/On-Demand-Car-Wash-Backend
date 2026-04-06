@@ -1,0 +1,77 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # API GATEWAY
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+        labels:
+          application: 'API-GATEWAY'
+
+  # USER SERVICE
+  - job_name: 'user-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8081']
+        labels:
+          application: 'USER-SERVICE'
+
+  # CAR SERVICE
+  - job_name: 'car-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8082']
+        labels:
+          application: 'CAR-SERVICE'
+
+  # ORDER SERVICE
+  - job_name: 'order-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8083']
+        labels:
+          application: 'ORDER-SERVICE'
+
+  # PAYMENT SERVICE
+  - job_name: 'payment-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8084']
+        labels:
+          application: 'PAYMENT-SERVICE'
+
+  # RATING SERVICE
+  - job_name: 'rating-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8086']
+        labels:
+          application: 'RATING-SERVICE'
+
+  # INVOICE SERVICE
+  - job_name: 'invoice-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8087']
+        labels:
+          application: 'INVOICE-SERVICE'
+
+  # ADMIN SERVICE
+  - job_name: 'admin-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8088']
+        labels:
+          application: 'ADMIN-SERVICE'
+
+  # NOTIFICATION SERVICE
+  - job_name: 'notification-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8089']
+        labels:
+          application: 'NOTIFICATION-SERVICE'

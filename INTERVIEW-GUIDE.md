@@ -1774,6 +1774,779 @@ public class OrderService {
 
 ---
 
+---
+
+# ============================================================
+# PART C: LIVE DEMO - READY-TO-USE CURL COMMANDS
+# ============================================================
+
+> Copy-paste these commands during your interview to demonstrate the system live. Replace `<token>` with the actual JWT from the login response.
+
+---
+
+## Demo Step 1: Register a Customer
+
+```bash
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Sarthak Pawar",
+    "email": "sarthak@gmail.com",
+    "phone": "9876543210",
+    "password": "1234",
+    "role": "CUSTOMER"
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "message": "User registered successfully",
+  "token": "Bearer eyJhbGciOiJIUzI1NiJ9...",
+  "email": "sarthak@gmail.com",
+  "role": "CUSTOMER"
+}
+```
+
+**What to say:** *"The request hits the API Gateway on port 8080. The Gateway sees /auth is a public path, skips JWT validation, and routes to USER-SERVICE. The password is hashed with BCrypt before storing in MySQL, and a JWT token is generated with the user's email and role as claims."*
+
+---
+
+## Demo Step 2: Register a Washer
+
+```bash
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Washer One",
+    "email": "washer@gmail.com",
+    "phone": "1234567890",
+    "password": "1234",
+    "role": "WASHER"
+  }'
+```
+
+---
+
+## Demo Step 3: Register an Admin (Only One Allowed)
+
+```bash
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Admin User",
+    "email": "admin@gmail.com",
+    "phone": "1111111111",
+    "password": "1234",
+    "role": "ADMIN"
+  }'
+```
+
+**What to say:** *"The system enforces a business rule: only one ADMIN can exist. If someone tries to register a second admin, they get 'Admin already exists' error. This is validated at the application level using existsByRole(Roles.ADMIN) query."*
+
+---
+
+## Demo Step 4: Login
+
+```bash
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "sarthak@gmail.com",
+    "password": "1234"
+  }'
+```
+
+**Copy the token from the response for the next commands.**
+
+---
+
+## Demo Step 5: Add a Car
+
+```bash
+curl -X POST http://localhost:8080/car/add \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "brand": "BMW",
+    "model": "X5",
+    "color": "Black",
+    "numberPlate": "MH12AB1234"
+  }'
+```
+
+**What to say:** *"Now the Gateway validates the JWT, extracts the email and role, adds X-User-Email and X-User-Role headers, and routes to CAR-SERVICE. The service reads the header to know who the user is."*
+
+---
+
+## Demo Step 6: Create an Order
+
+```bash
+curl -X POST http://localhost:8080/order/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "carId": 1,
+    "serviceType": "PREMIUM"
+  }'
+```
+
+**What to say:** *"This is where the magic happens. ORDER-SERVICE makes THREE inter-service calls: Feign to USER-SERVICE to get user ID, Feign to CAR-SERVICE to validate car ownership, then saves the order. It also publishes an OrderEvent to RabbitMQ asynchronously. NOTIFICATION-SERVICE picks it up and creates a notification. All Feign calls have retry and circuit breaker protection."*
+
+---
+
+## Demo Step 7: View My Orders
+
+```bash
+curl http://localhost:8080/order/my \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## Demo Step 8: Pay for the Order
+
+```bash
+curl -X POST "http://localhost:8080/order/pay/1?amount=500" \
+  -H "Authorization: Bearer <token>"
+```
+
+**What to say:** *"ORDER-SERVICE calls PAYMENT-SERVICE via Feign. If payment returns SUCCESS, the order status updates to COMPLETED and another RabbitMQ event is published for the notification."*
+
+---
+
+## Demo Step 9: Leave a Review
+
+```bash
+curl -X POST http://localhost:8080/review/add \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "orderId": 1,
+    "rating": 5,
+    "comment": "Excellent service!"
+  }'
+```
+
+---
+
+## Demo Step 10: Generate Invoice PDF
+
+```bash
+curl "http://localhost:8080/invoice/pdf?orderId=1&amount=500" \
+  -H "Authorization: Bearer <token>" \
+  --output invoice.pdf
+```
+
+**What to say:** *"INVOICE-SERVICE calculates GST - 9% CGST plus 9% SGST plus a 15% platform fee. It generates a professional PDF using the OpenPDF library with seller details, buyer details, a service table, and a GST breakdown. The PDF is returned as binary data."*
+
+---
+
+## Demo Step 11: Admin - View All Users (Login as Admin first)
+
+```bash
+# Login as admin first
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@gmail.com", "password": "1234"}'
+
+# Use admin token
+curl http://localhost:8080/admin/users \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+**What to say:** *"ADMIN-SERVICE reads the X-User-Role header and calls checkAdmin(). If the role isn't ADMIN, it returns 'Access Denied'. This is application-level authorization. The actual user list comes from a Feign call to USER-SERVICE with circuit breaker protection."*
+
+---
+
+## Demo Step 12: View Notifications (Public)
+
+```bash
+curl http://localhost:8080/notification/all
+```
+
+**What to say:** *"This is a public endpoint. You can see all notifications created by the RabbitMQ consumer. Each notification was triggered by an OrderEvent published by ORDER-SERVICE."*
+
+---
+
+## Demo Step 13: Show Monitoring UIs
+
+```
+Eureka Dashboard:  http://localhost:8761    → Show all registered services
+Zipkin:            http://localhost:9411    → Show distributed traces
+RabbitMQ:          http://localhost:15672   → Show queues and messages (guest/guest)
+Prometheus:        http://localhost:9090    → Show metrics targets
+Grafana:           http://localhost:3000    → Show dashboards (admin/admin)
+```
+
+**What to say:** *"Here's Eureka showing all 9 services registered. Here's Zipkin showing the trace for that order creation - you can see it touched Gateway, ORDER-SERVICE, USER-SERVICE, CAR-SERVICE, and PAYMENT-SERVICE. Here's RabbitMQ showing 2 messages were consumed from order_queue. And here's Grafana showing real-time request rates and JVM memory across all services."*
+
+---
+
+## Demo: Showing Circuit Breaker in Action
+
+```bash
+# 1. Stop USER-SERVICE
+docker stop user-service
+
+# 2. Try creating an order (will use fallback)
+curl -X POST http://localhost:8080/order/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"carId": 1, "serviceType": "BASIC"}'
+
+# 3. Check ORDER-SERVICE logs - should show "USER SERVICE DOWN"
+
+# 4. Restart USER-SERVICE
+docker start user-service
+
+# 5. Wait 60 seconds (circuit half-open period)
+# 6. Try again - should work normally
+```
+
+**What to say:** *"Watch - I'm stopping USER-SERVICE. Now when I create an order, the Feign call fails, retries 3 times, then the circuit breaker opens and the fallback kicks in. The system doesn't crash - it degrades gracefully. Now I restart USER-SERVICE, wait for the circuit to go half-open, and it recovers automatically."*
+
+---
+
+---
+
+# ============================================================
+# PART D: COMPLETE SPRING BOOT ANNOTATIONS GLOSSARY
+# ============================================================
+
+> Every annotation used in this project, organized by category.
+
+---
+
+## Core Spring Annotations
+
+| Annotation | Location | What It Does |
+|-----------|----------|-------------|
+| `@SpringBootApplication` | Main class | Combines `@Configuration` + `@EnableAutoConfiguration` + `@ComponentScan`. Bootstraps the entire Spring application. |
+| `@Configuration` | SecurityConfig, FeignConfig, RabbitMQConfig | Marks a class as a source of bean definitions. Methods annotated with `@Bean` inside this class produce Spring-managed objects. |
+| `@Bean` | SecurityConfig, RateLimiterConfig | Declares a method that returns an object to be registered as a Spring bean. Spring calls this method once and manages the returned object's lifecycle. |
+| `@Component` | JwtAuthenticationFilter | Generic Spring-managed component. Spring creates one instance and injects it wherever needed. |
+| `@Service` | OrderService, AuthService, JwtService | Specialized `@Component` for business logic classes. Semantically identical to `@Component` but indicates the class holds business logic. |
+| `@Repository` | (implicit via JpaRepository) | Specialized `@Component` for data access. Spring Data JPA auto-implements repository interfaces, so we don't use this annotation directly. |
+| `@Value("${property}")` | JwtService, JwtUtil | Injects a property value from application.properties or Config Server. Example: `@Value("${jwt.secret}")` injects the JWT secret key. |
+
+## Web/REST Annotations
+
+| Annotation | Location | What It Does |
+|-----------|----------|-------------|
+| `@RestController` | All controllers | Combines `@Controller` + `@ResponseBody`. Every method's return value is serialized to JSON automatically (via Jackson). |
+| `@RequestMapping("/path")` | All controllers | Sets the base URL path for all endpoints in the controller. Example: `@RequestMapping("/order")` means all endpoints start with `/order`. |
+| `@GetMapping("/path")` | GET endpoints | Maps HTTP GET requests to this method. Example: `@GetMapping("/my")` handles `GET /order/my`. |
+| `@PostMapping("/path")` | POST endpoints | Maps HTTP POST requests. Example: `@PostMapping("/create")` handles `POST /order/create`. |
+| `@PutMapping("/path")` | PUT endpoints | Maps HTTP PUT requests. Example: `@PutMapping("/assign/{id}")` handles `PUT /order/assign/5`. |
+| `@DeleteMapping("/path")` | DELETE endpoints | Maps HTTP DELETE requests. Example: `@DeleteMapping("/delete/{id}")` handles `DELETE /order/delete/5`. |
+| `@RequestBody` | Controller methods | Deserializes the HTTP request body (JSON) into a Java object using Jackson. Example: `@RequestBody OrderRequest req` converts `{"carId":1}` to an OrderRequest object. |
+| `@RequestParam` | Controller methods | Binds a query parameter. Example: `@RequestParam String email` extracts `email` from `?email=sarthak@gmail.com`. |
+| `@PathVariable` | Controller methods | Extracts a value from the URL path. Example: `@PathVariable Long id` extracts `5` from `/order/assign/5`. |
+| `@RequestHeader` | Controller methods | Reads an HTTP header value. Example: `@RequestHeader("X-User-Email") String email` reads the header set by the Gateway. |
+
+## JPA/Database Annotations
+
+| Annotation | Location | What It Does |
+|-----------|----------|-------------|
+| `@Entity` | User, Order, Car, Review, Invoice, Notification, ServicePlan | Marks the class as a JPA entity mapped to a database table. Hibernate creates the table automatically. |
+| `@Table(name="x")` | Order (`@Table(name="orders")`) | Overrides the default table name. Used for `Order` because `order` is a SQL reserved keyword. |
+| `@Id` | All entity ID fields | Marks the field as the primary key of the entity. |
+| `@GeneratedValue(strategy=IDENTITY)` | All entity ID fields | The database auto-generates the ID using `AUTO_INCREMENT`. Each new record gets the next sequential number. |
+| `@Column(unique=true)` | User.email | Adds a UNIQUE constraint on the column. Two users cannot have the same email. |
+| `@Enumerated(EnumType.STRING)` | User.role, Order.status | Stores the enum as its string name (e.g., "CUSTOMER") instead of its ordinal (e.g., 0). STRING is safer because reordering enums doesn't break existing data. |
+
+## Lombok Annotations
+
+| Annotation | Location | What It Does |
+|-----------|----------|-------------|
+| `@Data` | All entities, DTOs | Generates `getters`, `setters`, `toString()`, `equals()`, `hashCode()` at compile time. Eliminates 100+ lines of boilerplate per class. |
+| `@NoArgsConstructor` | Entities, DTOs | Generates empty constructor: `public User() {}`. Required by JPA (creates objects via reflection) and Jackson (JSON deserialization). |
+| `@AllArgsConstructor` | AuthResponse, Payment | Generates constructor with ALL fields: `new AuthResponse(msg, token, email, role)`. |
+| `@RequiredArgsConstructor` | All controllers, services | Generates constructor for `final` fields only. Spring uses this for dependency injection. `private final OrderRepository repo;` gets injected automatically. |
+| `@Slf4j` | NotificationListener | Generates `private static final Logger log = LoggerFactory.getLogger(ClassName.class);`. Allows `log.info("message")`. |
+| `@Builder` | (not used, but good to know) | Generates a builder pattern: `User.builder().name("X").email("Y").build()`. |
+
+## Spring Cloud Annotations
+
+| Annotation | Location | What It Does |
+|-----------|----------|-------------|
+| `@EnableEurekaServer` | EurekaServerApplication | Activates the Eureka service registry. Transforms the app into a discovery server. |
+| `@EnableConfigServer` | ConfigServerApplication | Activates the Config Server. Serves configuration from a Git repository. |
+| `@EnableDiscoveryClient` | UserServiceApplication | Enables Eureka client registration. Auto-registers the service with Eureka on startup. (Auto-enabled in Spring Boot 3.x if eureka-client is on classpath.) |
+| `@EnableFeignClients` | Order, Admin, Rating, Invoice apps | Scans for `@FeignClient` interfaces and creates proxy implementations. Without this, Feign clients are NOT registered. |
+| `@FeignClient(name="X")` | UserClient, CarClient, PaymentClient | Declares a Feign client interface. `name` matches the Eureka service name. Spring generates the HTTP client implementation at runtime. |
+| `@RefreshScope` | JwtService in multiple services | Marks a bean for dynamic refresh via Spring Cloud Bus. When `/actuator/busrefresh` is called, this bean is destroyed and recreated with new config values. |
+
+## Resilience4j Annotations
+
+| Annotation | Location | What It Does |
+|-----------|----------|-------------|
+| `@CircuitBreaker(name="x", fallbackMethod="y")` | OrderService, AdminService, ReviewService, InvoiceService | Wraps the method with a circuit breaker. If the failure rate exceeds the threshold, subsequent calls go directly to the fallback method. |
+| `@Retry(name="x")` | OrderService, AdminService, InvoiceService | Wraps the method with retry logic. Failed calls are automatically retried (default: 3 times with 1s delay). |
+
+## RabbitMQ Annotations
+
+| Annotation | Location | What It Does |
+|-----------|----------|-------------|
+| `@RabbitListener(queues="x")` | NotificationListener | Subscribes to a RabbitMQ queue. When a message arrives, Spring deserializes it and calls the annotated method. After successful return, the message is acknowledged. |
+
+## Security Annotations
+
+| Annotation | Location | What It Does |
+|-----------|----------|-------------|
+| `@EnableWebSecurity` | (implicit in Spring Boot) | Enables Spring Security's web security support. Auto-enabled when `spring-boot-starter-security` is on classpath. |
+
+---
+
+---
+
+# ============================================================
+# PART E: WHITEBOARD DRAWING GUIDE
+# ============================================================
+
+> When the interviewer says "Draw your architecture on the whiteboard," follow this 2-minute guide.
+
+---
+
+## Step 1: Draw the Client (10 seconds)
+
+```
+Draw a box on the LEFT:
+┌──────────┐
+│  CLIENT  │
+│ (Mobile/ │
+│  Browser)│
+└──────────┘
+```
+
+Say: *"The client can be a mobile app, web browser, or Postman."*
+
+## Step 2: Draw the API Gateway (15 seconds)
+
+```
+Draw a large box in the CENTER:
+┌──────────────────────────────┐
+│        API GATEWAY           │
+│  - JWT Authentication        │
+│  - Rate Limiting (Redis)     │
+│  - Routing (Eureka)          │
+│  - Load Balancing            │
+└──────────────────────────────┘
+
+Draw an arrow from Client → Gateway
+```
+
+Say: *"All requests go through the API Gateway. It validates JWT, rate limits via Redis, and routes to the correct service using Eureka."*
+
+## Step 3: Draw the Services (30 seconds)
+
+```
+Draw 8 boxes on the RIGHT in two rows:
+
+┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
+│ USER │ │ORDER │ │ PAY  │ │ CAR  │
+└──────┘ └──────┘ └──────┘ └──────┘
+┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
+│ADMIN │ │RATING│ │ INV  │ │NOTIF │
+└──────┘ └──────┘ └──────┘ └──────┘
+
+Draw arrows from Gateway → each service
+```
+
+Say: *"8 business services, each with its own database. They're independently deployable and scalable."*
+
+## Step 4: Draw Infrastructure (30 seconds)
+
+```
+Draw boxes ABOVE or BELOW:
+
+┌────────┐  ┌────────┐  ┌──────────┐
+│ EUREKA │  │ CONFIG │  │ RabbitMQ │
+│ (Disc.)│  │(Config)│  │ (Events) │
+└────────┘  └────────┘  └──────────┘
+
+┌────────┐  ┌────────┐  ┌──────────┐
+│ Redis  │  │ Zipkin │  │Prometheus│
+│ (Rate) │  │(Trace) │  │+ Grafana │
+└────────┘  └────────┘  └──────────┘
+```
+
+Say: *"Infrastructure components: Eureka for service discovery, Config Server for centralized config, RabbitMQ for async messaging, Redis for rate limiting, Zipkin for distributed tracing, Prometheus and Grafana for monitoring."*
+
+## Step 5: Draw Communication Lines (20 seconds)
+
+```
+Draw:
+1. Solid arrows: ORDER → USER, ORDER → CAR, ORDER → PAYMENT (Feign sync)
+2. Dashed arrow: ORDER ···→ RabbitMQ ···→ NOTIFICATION (async)
+3. All services → Eureka (registration arrows)
+```
+
+Say: *"Solid lines are synchronous Feign calls with circuit breakers. The dashed line is asynchronous RabbitMQ messaging for notifications."*
+
+## Step 6: Draw Auth Flow (15 seconds)
+
+```
+Write next to the Gateway:
+Client → JWT Token → Gateway validates → X-User-Email header → Services trust
+```
+
+Say: *"JWT validated once at the Gateway. Services trust the forwarded headers. This is the Gateway Trust Pattern."*
+
+**Total time: ~2 minutes. Clean, impressive, comprehensive.**
+
+---
+
+---
+
+# ============================================================
+# PART F: COMPANIES USING THE SAME TECHNOLOGY STACK
+# ============================================================
+
+> Drop these names during your interview to show industry awareness.
+
+---
+
+## Technology → Real Companies Using It
+
+| Technology | Companies Using It | What They Use It For |
+|-----------|-------------------|---------------------|
+| **Microservices** | Netflix, Amazon, Uber, Spotify, Airbnb | All have 500+ microservices |
+| **Spring Boot** | Netflix, Alibaba, Intuit, JPMorgan Chase | Backend services |
+| **Netflix Eureka** | Netflix (created it), Flipkart, Swiggy | Service discovery at scale |
+| **Spring Cloud Gateway** | Alibaba, many Spring-based startups | API gateway |
+| **RabbitMQ** | Reddit, Mozilla, Uber, Indeed, Bloomberg | Message broker for async tasks |
+| **Redis** | Twitter, GitHub, Pinterest, Snapchat, StackOverflow | Caching, rate limiting, sessions |
+| **Resilience4j** | Deutsche Telekom (created it), many Spring apps | Circuit breaking |
+| **JWT** | Auth0, Okta, every modern web app | Stateless authentication |
+| **Docker** | Every modern tech company | Container runtime |
+| **Kubernetes** | Google (created it), Spotify, Airbnb, Pinterest | Container orchestration |
+| **Prometheus + Grafana** | SoundCloud (created Prometheus), DigitalOcean, GitLab | Monitoring |
+| **Zipkin** | Twitter (created it), many Spring Cloud apps | Distributed tracing |
+| **GitHub Actions** | Every GitHub-hosted project | CI/CD |
+| **MySQL** | Facebook, Twitter, YouTube, Netflix | Relational database |
+
+## How to Use This in an Interview
+
+*"I chose Netflix Eureka for service discovery because it's battle-tested - Netflix runs hundreds of microservices with it in production. Similarly, RabbitMQ is used by companies like Reddit and Bloomberg for reliable async messaging. The Resilience4j library I used was created by Deutsche Telekom for their production systems. These aren't experimental technologies - they're proven at massive scale."*
+
+---
+
+---
+
+# ============================================================
+# PART G: MAVEN DEPENDENCY CHEAT SHEET
+# ============================================================
+
+> Explains what every dependency in your pom.xml files does.
+
+---
+
+## Core Dependencies
+
+| Dependency | Artifact ID | What It Does |
+|-----------|-------------|-------------|
+| **Spring Web** | `spring-boot-starter-web` | Embedded Tomcat + Spring MVC + Jackson JSON serialization. Makes REST APIs possible. |
+| **Spring Data JPA** | `spring-boot-starter-data-jpa` | Hibernate ORM + JPA + Spring Data repositories. Auto-generates CRUD operations from interface definitions. |
+| **Spring Security** | `spring-boot-starter-security` | Authentication and authorization framework. Provides BCryptPasswordEncoder, SecurityFilterChain, CSRF protection. Used only in USER-SERVICE. |
+| **Spring Actuator** | `spring-boot-starter-actuator` | Exposes `/health`, `/info`, `/metrics`, `/prometheus` endpoints. Essential for monitoring and K8s health probes. |
+| **Spring Validation** | `spring-boot-starter-validation` | Bean validation with `@Valid`, `@NotNull`, `@Size`. Used in ORDER-SERVICE. |
+| **Spring DevTools** | `spring-boot-devtools` | Auto-restart on code changes during development. NOT included in production builds. |
+
+## Spring Cloud Dependencies
+
+| Dependency | Artifact ID | What It Does |
+|-----------|-------------|-------------|
+| **Eureka Client** | `spring-cloud-starter-netflix-eureka-client` | Registers the service with Eureka Server and enables service discovery for Feign/LoadBalancer. |
+| **Eureka Server** | `spring-cloud-starter-netflix-eureka-server` | Runs the Eureka registry. Only in eureka-server. |
+| **Config Client** | `spring-cloud-starter-config` | Fetches configuration from Config Server on startup. |
+| **Config Server** | `spring-cloud-config-server` | Serves configuration from a Git repository. Only in config-server. |
+| **Gateway** | `spring-cloud-starter-gateway` | Spring Cloud Gateway with WebFlux + Netty. Only in api-gateway. |
+| **OpenFeign** | `spring-cloud-starter-openfeign` | Declarative HTTP client for inter-service calls. |
+| **LoadBalancer** | `spring-cloud-starter-loadbalancer` | Client-side load balancing. Auto-included with Eureka/Feign. |
+| **Cloud Bus AMQP** | `spring-cloud-starter-bus-amqp` | Spring Cloud Bus via RabbitMQ for dynamic config refresh. |
+| **Circuit Breaker** | `spring-cloud-starter-circuitbreaker-resilience4j` | Resilience4j integration with Spring Cloud. |
+
+## Data & Messaging Dependencies
+
+| Dependency | Artifact ID | What It Does |
+|-----------|-------------|-------------|
+| **MySQL Connector** | `mysql-connector-j` | JDBC driver for MySQL. Allows Java to connect to MySQL databases. |
+| **RabbitMQ (AMQP)** | `spring-boot-starter-amqp` | RabbitMQ client + Spring AMQP. Enables publish/subscribe messaging with `@RabbitListener`. |
+| **Redis Reactive** | `spring-boot-starter-data-redis-reactive` | Reactive Redis client. Used by API Gateway for rate limiting (non-blocking). |
+
+## Observability Dependencies
+
+| Dependency | Artifact ID | What It Does |
+|-----------|-------------|-------------|
+| **Micrometer Brave** | `micrometer-tracing-bridge-brave` | Distributed tracing instrumentation. Auto-generates trace/span IDs and propagates them via B3 headers. |
+| **Zipkin Reporter** | `zipkin-reporter-brave` | Reports spans to Zipkin server. Works with Micrometer Brave to send timing data. |
+| **Prometheus Registry** | `micrometer-registry-prometheus` | Exposes metrics in Prometheus format at `/actuator/prometheus`. |
+
+## Security & JWT Dependencies
+
+| Dependency | Artifact ID | What It Does |
+|-----------|-------------|-------------|
+| **JJWT API** | `jjwt-api` | JWT creation and parsing API. Provides `Jwts.builder()` and `Jwts.parserBuilder()`. |
+| **JJWT Impl** | `jjwt-impl` | JWT implementation. Does the actual cryptographic operations (HMAC-SHA256 signing/verification). |
+| **JJWT Jackson** | `jjwt-jackson` | Jackson integration for JWT. Serializes/deserializes JWT claims as JSON. |
+
+## Other Dependencies
+
+| Dependency | Artifact ID | What It Does |
+|-----------|-------------|-------------|
+| **Lombok** | `lombok` | Compile-time code generation. `@Data`, `@RequiredArgsConstructor`, `@Slf4j` etc. Eliminates boilerplate. |
+| **OpenPDF** | `com.lowagie:itext:2.1.7` | PDF generation library. Used in INVOICE-SERVICE to create tax invoices. |
+| **Jackson Databind** | `jackson-databind` | JSON serialization/deserialization. Auto-included with spring-boot-starter-web but explicitly added in some services. |
+| **Resilience4j Spring Boot 3** | `resilience4j-spring-boot3` | Auto-configuration for Resilience4j in Spring Boot 3. Enables `@CircuitBreaker`, `@Retry` annotations. |
+
+---
+
+---
+
+# ============================================================
+# PART H: INTERVIEW DO'S AND DON'TS
+# ============================================================
+
+---
+
+## DO's (Things That Impress Interviewers)
+
+### 1. Use Technical Vocabulary Naturally
+```
+WEAK:  "Services talk to each other using HTTP"
+STRONG: "Services communicate synchronously via OpenFeign with Eureka-based 
+         service discovery and client-side load balancing"
+```
+
+### 2. Explain Trade-offs, Not Just Choices
+```
+WEAK:  "I used RabbitMQ for messaging"
+STRONG: "I chose RabbitMQ over Kafka because RabbitMQ is ideal for task queues 
+         with complex routing patterns. Kafka would be overkill for our 
+         notification use case. Kafka shines for high-throughput event 
+         streaming and log aggregation, which we don't need."
+```
+
+### 3. Give Specific Numbers
+```
+WEAK:  "The system has many services"
+STRONG: "The system has 11 services, 17 Docker containers, 224 source files, 
+         and the Docker Compose stack starts in about 3 minutes"
+```
+
+### 4. Explain the "Why" Before the "What"
+```
+WEAK:  "I added a circuit breaker to ORDER-SERVICE"
+STRONG: "When USER-SERVICE goes down, without protection ORDER-SERVICE threads 
+         block waiting for responses, the thread pool exhausts, and the entire 
+         service crashes. I added Resilience4j circuit breakers that detect the 
+         failure, open the circuit, and return a fallback - preventing the 
+         cascading failure entirely."
+```
+
+### 5. Draw Architecture When Explaining
+- Always offer to draw on the whiteboard
+- It shows you truly understand the system, not just memorized answers
+- Use the whiteboard guide from Part E
+
+### 6. Mention Monitoring and Observability
+- Most candidates skip this
+- Saying "I have Prometheus metrics, Zipkin tracing, and Grafana dashboards" puts you ahead of 90% of candidates
+
+### 7. Show Awareness of Production Concerns
+```
+"In production, I would add:
+ - mTLS via Istio for zero-trust internal communication
+ - Flyway for database migration versioning
+ - Horizontal Pod Autoscaler based on Prometheus metrics
+ - Centralized logging with ELK stack"
+```
+
+---
+
+## DON'TS (Common Mistakes to Avoid)
+
+### 1. Don't Say "I Just Followed a Tutorial"
+```
+WRONG: "I followed a YouTube tutorial to build this"
+RIGHT: "I designed the architecture based on Spring Cloud best practices 
+        and implemented it service by service. I faced several challenges 
+        like 403 Forbidden errors and Feign header propagation issues 
+        that I debugged and resolved."
+```
+
+### 2. Don't Be Unable to Explain Your Own Code
+```
+WRONG: "I'm not sure why I used @RefreshScope there"
+RIGHT: "@RefreshScope marks the bean for dynamic config refresh via 
+        Spring Cloud Bus. When I change jwt.secret in the Config Server 
+        and trigger /actuator/busrefresh, this bean is recreated with 
+        the new value - zero downtime."
+```
+
+### 3. Don't Ignore Error Handling Questions
+```
+WRONG: "It just works"
+RIGHT: "If USER-SERVICE is down, the circuit breaker opens after 50% 
+        failure rate. The fallback returns a default user. I also have 
+        retry logic that attempts 3 times before recording a failure. 
+        For async flows, RabbitMQ queues messages until the consumer 
+        is available."
+```
+
+### 4. Don't Claim Perfection - Acknowledge Improvements
+```
+WRONG: "My project is perfect"
+RIGHT: "It's production-ready for the current scope. For enterprise 
+        scale, I'd add OAuth2 with Keycloak, the Saga pattern for 
+        distributed transactions, and Redis caching."
+```
+
+### 5. Don't Use Jargon You Can't Explain
+```
+If you say "eventual consistency" - be ready to explain what it means.
+If you say "backpressure" - be ready to give a concrete example.
+If you say "12-Factor App" - be ready to name at least 5 factors.
+```
+
+---
+
+---
+
+# ============================================================
+# PART I: HR/BEHAVIORAL QUESTIONS MAPPED TO THIS PROJECT
+# ============================================================
+
+> Interviewers often ask behavioral questions. Map every answer to your project.
+
+---
+
+### BQ1: "Tell me about a time you solved a complex technical problem."
+
+*"When building the Car Wash System, I faced intermittent 403 Forbidden errors across services. The debugging was complex because the error happened only on certain API calls, not all.*
+
+*I systematically traced the request flow: Gateway logs showed the JWT was valid, but ORDER-SERVICE logs showed the request was being blocked. I discovered that Spring Security's default configuration in USER-SERVICE was applying to internal Feign calls between services, not just external client requests.*
+
+*The root cause was that Feign creates new HTTP requests that don't carry Spring Security's authentication context. I designed the Gateway Trust Pattern - validate JWT once at the Gateway, forward user identity as trusted headers, and configure services to permit all internal traffic. This required changes across all 8 services - their SecurityConfigs, FeignConfigs, and controllers. The fix was architectural, not just a code patch."*
+
+---
+
+### BQ2: "Tell me about a time you had to make a difficult technical decision."
+
+*"I had to choose between validating JWT in every service vs only at the Gateway. Both approaches are valid in the industry.*
+
+*Validating everywhere provides defense-in-depth but means every service needs the JWT library, the secret key, and validation logic. It adds latency (crypto operations on every service) and complexity (duplicated code).*
+
+*Validating only at the Gateway is simpler and faster but requires trusting the internal network. After analyzing our deployment model (Docker network / Kubernetes ClusterIP where services aren't publicly accessible), I chose the Gateway Trust Pattern. Services are never exposed directly to the internet, so internal traffic is inherently trusted.*
+
+*The decision saved significant complexity - 7 services didn't need JWT dependencies, and we eliminated redundant cryptographic operations on every request."*
+
+---
+
+### BQ3: "Tell me about a time you worked with a new technology you hadn't used before."
+
+*"RabbitMQ was completely new to me. I needed to implement asynchronous notifications for order events.*
+
+*I started by understanding the core concepts - exchanges, queues, bindings, routing keys. Then I implemented a minimal producer-consumer setup and tested it in isolation. The first challenge was message deserialization - the producer used JacksonJsonMessageConverter but the consumer expected Jackson2JsonMessageConverter. Messages were stuck in the queue because deserialization failed silently.*
+
+*I debugged by checking RabbitMQ's management UI, which showed messages in the queue with no consumers. I examined the message format, realized the converter mismatch, standardized both sides, and verified end-to-end delivery. The experience taught me that in distributed systems, debugging requires checking the middleware (RabbitMQ UI), not just application logs."*
+
+---
+
+### BQ4: "Describe a project you're most proud of."
+
+*"The Car Wash System. It's not just a CRUD app - it demonstrates real distributed systems engineering. I built 11 independently deployable services, implemented fault tolerance with circuit breakers, event-driven architecture with RabbitMQ, distributed tracing with Zipkin, and a complete DevOps pipeline with Docker, Kubernetes, and CI/CD.*
+
+*What I'm most proud of is the resilience design. When I stop USER-SERVICE, the system doesn't crash. The circuit breaker opens, fallbacks kick in, and other services continue working. When I restart USER-SERVICE, the circuit automatically recovers. That's production-grade behavior.*
+
+*I also wrote a 5,689-line README that serves as both documentation and a learning guide. The project is on GitHub with Docker Compose - anyone can clone it and run the entire 17-container system with one command."*
+
+---
+
+### BQ5: "Tell me about a time you had to debug a distributed system."
+
+*"When Feign calls between ORDER-SERVICE and USER-SERVICE started failing silently - the order would be created but with incorrect user data.*
+
+*I used three debugging tools: First, I checked Eureka to confirm USER-SERVICE was registered. Second, I checked Zipkin to trace the exact request - it showed ORDER-SERVICE was calling USER-SERVICE but the response was a fallback (user id=0). Third, I checked ORDER-SERVICE logs which showed the circuit breaker was open.*
+
+*The root cause was that USER-SERVICE had a startup delay, and during that window, ORDER-SERVICE's retries exhausted and the circuit opened. The fix was twofold: I added a startupProbe in Kubernetes (allowing 200 seconds for Spring Boot startup) and configured the circuit breaker's wait-duration-in-open-state to 60 seconds instead of the default 30.*
+
+*This experience taught me that in microservices, you need observability tools (Eureka, Zipkin, logs) to debug effectively - you can't just step through code with a debugger."*
+
+---
+
+### BQ6: "How do you handle pressure/tight deadlines?"
+
+*"When building the Docker Compose setup, I needed all 17 containers to start correctly with proper dependency ordering. The initial setup had race conditions - services started before MySQL was ready, causing connection refused errors.*
+
+*Instead of panicking, I broke the problem into layers: infrastructure first (MySQL, RabbitMQ, Redis), then discovery (Eureka, Config Server), then Gateway, then services. I added health checks to every container and used depends_on with condition: service_healthy. I also added start_period to allow Spring Boot's 30-40 second startup time.*
+
+*By tackling it systematically layer by layer, I had the full stack running reliably within a day."*
+
+---
+
+### BQ7: "How do you stay updated with technology?"
+
+*"I follow Spring's official blog for new releases, read Baeldung for Spring Boot tutorials, and watch conference talks from SpringOne. For microservices patterns, I reference Sam Newman's 'Building Microservices' and Martin Fowler's articles. For this project specifically, I studied the Spring Cloud documentation, Netflix OSS architecture blog posts, and the 12-Factor App methodology to ensure I was following industry best practices."*
+
+---
+
+### BQ8: "What would your ideal team look like for this project?"
+
+*"In a production setting, I'd organize teams around services - a User/Auth team, an Orders team, a Payments team, and an Infrastructure team. Each team owns their service(s), their database, their CI/CD pipeline, and their on-call rotation.*
+
+*The Infrastructure team manages shared components: API Gateway, Eureka, Config Server, RabbitMQ, Redis, and the monitoring stack. They also own the Kubernetes platform and CI/CD templates.*
+
+*This aligns with Conway's Law - the architecture mirrors the team structure. Each team can deploy independently, use their preferred tools within the service boundary, and own their SLA."*
+
+---
+
+---
+
+# ============================================================
+# PART J: FINAL QUICK REVISION CHEAT SHEET
+# ============================================================
+
+> Read this 5 minutes before your interview.
+
+---
+
+## 1-Line Project Description
+> "Production-grade microservices Car Wash System - 11 services, Spring Boot 3.x, Spring Cloud, RabbitMQ, Docker, K8s, CI/CD"
+
+## 5 Services to Remember by Heart
+1. **API Gateway** → JWT + Rate Limiting + Routing
+2. **ORDER-SERVICE** → Core logic + Feign + RabbitMQ + Circuit Breaker
+3. **USER-SERVICE** → Auth + JWT Generation + BCrypt
+4. **NOTIFICATION-SERVICE** → @RabbitListener + Async Consumer
+5. **EUREKA-SERVER** → Service Registry + Heartbeat + Self-Preservation
+
+## 5 Keywords for Every Answer
+1. **Stateless** (JWT, no sessions)
+2. **Decoupled** (services independent, async messaging)
+3. **Resilient** (circuit breaker, retry, fallback)
+4. **Observable** (Zipkin tracing, Prometheus metrics, Grafana)
+5. **Containerized** (Docker Compose, Kubernetes, CI/CD)
+
+## 3 Challenges to Mention
+1. 403 Forbidden → Gateway Trust Pattern
+2. Feign Header Loss → FeignConfig RequestInterceptor
+3. Cascading Failures → Resilience4j Circuit Breaker
+
+## 3 Trade-offs to Mention
+1. Monolith vs Microservices → Chose microservices for scaling & fault isolation
+2. Sync vs Async → Feign for immediate needs, RabbitMQ for fire-and-forget
+3. JWT per service vs Gateway only → Gateway Trust Pattern for simplicity & performance
+
+## 3 Future Improvements
+1. OAuth2 with Keycloak
+2. Saga Pattern for distributed transactions
+3. Redis Caching for performance
+
+---
+
 ## Repository
 
 **Source Code:** [github.com/sarthakpawar0912/On-Demand-Car-Wash-Backend](https://github.com/sarthakpawar0912/On-Demand-Car-Wash-Backend)
